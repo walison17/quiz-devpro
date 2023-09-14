@@ -15,11 +15,11 @@
             <p class="subtitle-page">Dev Pro</p>
 
         <div class="container">
-                
+
                 <div id="loader"></div>
 
                 <div id="game" class="justify-center flex-column animate-bottom hidden">
-                    
+
                     <div class="game-result">
                         <h2>Você fez {{pontos}} pontos e está no</h2>
                         <h2 class="status-player">{{posicao}}º</h2>
@@ -27,18 +27,15 @@
                     </div>
 
                     <br />
-                    
+
                     <h3>Ranking</h3>
-                    {% for aluno in primeiros_alunos_do_ranking %}
+                    {% for aluno in ranking %}
                     <div class="choice-container">
-                        <p class="choice-prefix">{{forloop.counter}}º</p>
-                        <p class="choice-text">{{ aluno.aluno__nome}} ({{ aluno.pontos__sum }} pontos)</p>
+                        <p class="choice-prefix">{{ aluno.posicao_ranking }}º</p>
+                        <p class="choice-text">{{ aluno.nome}} ({{ aluno.pontos }} pontos)</p>
                     </div>
                     {% endfor %}
-
-
                 </div>
-            
             </div>
         </div>
     </body>

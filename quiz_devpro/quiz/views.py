@@ -1,15 +1,10 @@
-from datetime import datetime
-
 from django.db import IntegrityError
-from django.db.models import Sum
-from django.http import HttpResponse
-from django.shortcuts import render, redirect
-
-# Create your views here.
+from django.shortcuts import redirect, render
 from django.utils.timezone import now
 
 from quiz_devpro.quiz.forms import AlunoForm
-from quiz_devpro.quiz.models import Pergunta, Aluno, Resposta
+from quiz_devpro.quiz.models import Aluno, Pergunta, Resposta
+from quiz_devpro.quiz import services
 
 
 def index(request):
@@ -40,6 +35,7 @@ def perguntas(request, indice: int):
         pergunta = Pergunta.objects.filter(disponivel=True).order_by('id')[indice - 1]
     except IndexError:
         return redirect('/classificacao')
+
     if request.method == 'POST':
         resposta_indice = int(request.POST['resposta_indice'])
         resposta_correta = pergunta.conferir_resposta(resposta_indice)
@@ -54,6 +50,8 @@ def perguntas(request, indice: int):
                 pontos = max(100 - int(diferenca.total_seconds()), 0)
             try:
                 Resposta.objects.create(pontos=pontos, aluno_id=aluno_id, pergunta=pergunta)
+                aluno = Aluno.objects.get(pk=aluno_id)
+                services.salvar_pontos(aluno, pontos)
             except IntegrityError:
                 pass
             return redirect(f'/perguntas/{indice + 1}')
@@ -68,19 +66,21 @@ def perguntas(request, indice: int):
 def classificacao(request):
     if 'aluno_id' not in request.session:
         return redirect('/')
+
     aluno_id = request.session['aluno_id']
-    pontos_dct = Resposta.objects.filter(aluno_id=aluno_id).aggregate(Sum('pontos'))
-    pontos_do_aluno = pontos_dct['pontos__sum']
-    if pontos_do_aluno is None:
-        pontos_do_aluno = 0
-    alunos_com_mais_pontos = Resposta.objects.values('aluno').annotate(Sum('pontos')).filter(
-        pontos__sum__gt=pontos_do_aluno).count()
-    primeiros_alunos_do_ranking = list(
-        Resposta.objects.values('aluno', 'aluno__nome').annotate(Sum('pontos')).order_by('-pontos__sum')[:5]
-    )
+    aluno = Aluno.objects.get(pk=aluno_id)
+
+    posicao, pontos = services.get_posicao(aluno)
+
     contexto = {
-        'pontos': pontos_do_aluno,
-        'posicao': alunos_com_mais_pontos + 1,
-        'primeiros_alunos_do_ranking': primeiros_alunos_do_ranking
+        'pontos': pontos,
+        'posicao': posicao,
+        'ranking': services.classificacao(top=5)
     }
+
     return render(request, 'quiz/classificacao.html', contexto)
+
+
+# zadd INCR -> adicionar os pontos do aluno no ranking
+# zrevrange -> buscar o top 5
+# zrevrank -> buscar a posição do aluno no ranking
